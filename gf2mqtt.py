@@ -20,6 +20,7 @@ class GrainfatherReader:
         self.running = False
 
     def notification_handler(self, sender, data):
+        print (data)
         """Håndterer notifikationer fra Grainfather"""
         try:
             message = data.decode('utf-8').strip()
@@ -31,7 +32,7 @@ class GrainfatherReader:
                 if len(parts) >= 2:
                     target_temp = parts[0]
                     current_temp = parts[1]
-                    print(f"🌡️  Mål: {target_temp}°C | Nuværende: {current_temp}°C")
+                    print(f"Temperatur : {current_temp}°C Mål: {target_temp}°C")
             
             # Andre interessante notifikationer
             elif message.startswith('Y'):
@@ -41,7 +42,7 @@ class GrainfatherReader:
                     heat_power = parts[0]
                     pump_status = parts[1]
                     auto_mode = parts[2]
-                    print(f"🔥 Varme: {heat_power}% | 🔄 Pumpe: {'ON' if pump_status == '1' else 'OFF'}")
+                    print(f"Varme: {heat_power}% | 🔄 Pumpe: {'ON' if pump_status == '1' else 'OFF'}")
             
             elif message.startswith('T'):
                 # Timer information
@@ -70,7 +71,7 @@ class GrainfatherReader:
             
             # Hold forbindelsen åben og læs data
             while self.running:
-                await asyncio.sleep(1)
+                await asyncio.sleep(5)
                 
         except Exception as e:
             print(f"Fejl: {e}")
@@ -85,13 +86,10 @@ class GrainfatherReader:
 
 def load_config() -> dict:
     """Indlæser konfiguration fra config.toml"""
-    try:
-        with open('config.toml', 'rb') as f:
-            config = tomllib.load(f)
-            return config
-    except Exception as e:
-        print(f"Kunne ikke læse config.toml: {e}")
-        return None
+    with open('config.toml', 'rb') as f:
+        config = tomllib.load(f)
+    return config
+        
 
 async def main():
     """Hovedfunktion"""
