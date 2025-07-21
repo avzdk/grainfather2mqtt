@@ -2,6 +2,8 @@
 
 A Python script to scan for Grainfather brewing devices using Bluetooth Low Energy (BLE) on Raspberry Pi 4B.
 
+https://github.com/kingpulsar/Grainfather-Bluetooth-Protocol
+
 ## Requirements
 
 - Raspberry Pi 4B with Bluetooth enabled
