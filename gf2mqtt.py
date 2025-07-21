@@ -5,8 +5,13 @@ Forbinder til Grainfather og læser temperaturen løbende
 """
 
 import asyncio
+from cmath import log
 import tomllib
 from bleak import BleakClient
+import paho.mqtt.client as mqtt
+import uuid
+import datetime
+import json
 
 # Grainfather Bluetooth UUIDs (fra protokol dokumentationen)
 SERVICE_UUID = "0000cdd0-0000-1000-8000-00805f9b34fb"
@@ -89,7 +94,15 @@ def load_config() -> dict:
     with open('config.toml', 'rb') as f:
         config = tomllib.load(f)
     return config
-        
+
+def sendMqtt(ip,data):
+    mqtt_client = mqtt.Client("gf2mqtt")
+    data['msg_uuid']=str(uuid.uuid4())
+    data['time_send']=str(datetime.datetime.now())	
+    mqtt_client.connect(ip)		
+    response=mqtt_client.publish('grainfather/data',json.dumps(data),1,True)
+    #log.debug(f"Succes: {response.rc}" )
+    mqtt_client.disconnect()        
 
 async def main():
     """Hovedfunktion"""
@@ -101,7 +114,11 @@ async def main():
     print(f"Grainfather adresse: {gf_address}")
         
     reader = GrainfatherReader(gf_address)
+
+    mgtt_ip= CONFIG['mqtt_ip'] 
     
+
+
     try:
         await reader.connect_and_read()
     except KeyboardInterrupt:

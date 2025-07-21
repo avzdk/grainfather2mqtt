@@ -2,3 +2,6 @@
 
 #Grainfather addresse. Anvned simple_scanner til at finde.
 gfaddr="BB:A0:50:04:1F:33"
+
+#Adresse til MQTT
+mqtt_ip="192.168.1.3"
