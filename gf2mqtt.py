@@ -13,6 +13,7 @@ from paho.mqtt.enums import CallbackAPIVersion
 import uuid
 import datetime
 import json
+import time
 
 def load_config() -> dict:
     """Indlæser konfiguration fra config.toml"""
@@ -68,6 +69,37 @@ class GrainfatherReader:
         self.mqtt_ip = mqtt_ip
         self.client = None
         self.running = False
+        
+        # Timer for MQTT sending (once per minute)
+        self.last_mqtt_send = 0
+        self.mqtt_interval = int(CONFIG['mqtt_delay'])  # seconds
+        
+        # Store latest data
+        self.latest_temperature_data = None
+        self.latest_status_data = None
+        self.latest_timer_data = None
+
+    def should_send_mqtt(self):
+        """Check if enough time has passed to send MQTT data"""
+        current_time = time.time()
+        if current_time - self.last_mqtt_send >= self.mqtt_interval:
+            self.last_mqtt_send = current_time
+            return True
+        return False
+    
+    def send_stored_data(self):
+        """Send the latest stored data to MQTT"""
+        if self.latest_temperature_data:
+            send_mqtt(self.mqtt_ip, self.latest_temperature_data.copy())
+            logger.debug("Sent temperature data to MQTT")
+            
+        if self.latest_status_data:
+            send_mqtt(self.mqtt_ip, self.latest_status_data.copy())
+            logger.debug("Sent status data to MQTT")
+            
+        if self.latest_timer_data:
+            send_mqtt(self.mqtt_ip, self.latest_timer_data.copy())
+            logger.debug("Sent timer data to MQTT")
 
     def notification_handler(self, sender, data):
         logger.debug(f"Raw data: {data}")
@@ -84,14 +116,13 @@ class GrainfatherReader:
                     current_temp = parts[1]
                     logger.info(f"Temperatur: {current_temp}°C | Mål: {target_temp}°C")
                     
-                    # Send temperature data to MQTT
-                    mqtt_data = {
+                    # Store temperature data (don't send immediately)
+                    self.latest_temperature_data = {
                         "device": "grainfather",
                         "type": "temperature",
                         "current_temp": float(current_temp),
                         "target_temp": float(target_temp)
                     }
-                    send_mqtt(self.mqtt_ip, mqtt_data)
             
             # Andre interessante notifikationer
             elif message.startswith('Y'):
@@ -103,15 +134,14 @@ class GrainfatherReader:
                     auto_mode = parts[2]
                     logger.info(f"Varme: {heat_power}% | Pumpe: {'ON' if pump_status == '1' else 'OFF'}")
                     
-                    # Send status data to MQTT
-                    mqtt_data = {
+                    # Store status data (don't send immediately)
+                    self.latest_status_data = {
                         "device": "grainfather",
                         "type": "status",
                         "heat_power": int(heat_power),
                         "pump_status": pump_status == '1',
                         "auto_mode": auto_mode == '1'
                     }
-                    send_mqtt(self.mqtt_ip, mqtt_data)
             
             elif message.startswith('T'):
                 # Timer information
@@ -122,14 +152,18 @@ class GrainfatherReader:
                     if timer_active == '1':
                         logger.info(f"Timer: {time_left} min tilbage")
                         
-                        # Send timer data to MQTT
-                        mqtt_data = {
+                        # Store timer data (don't send immediately)
+                        self.latest_timer_data = {
                             "device": "grainfather",
                             "type": "timer",
                             "timer_active": True,
                             "time_left_minutes": int(time_left)
                         }
-                        send_mqtt(self.mqtt_ip, mqtt_data)
+            
+            # Check if it's time to send MQTT data
+            if self.should_send_mqtt():
+                logger.info("Sending MQTT data (1 minute interval)")
+                self.send_stored_data()
                                 
         except Exception as e:
             logger.error(f"Fejl ved parsing af besked: {e}")
